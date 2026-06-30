@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>God's Gambit: Mythos</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -19,21 +19,22 @@
 
 <div class="attack-indicator" id="attackIndicator">⚔️</div>
 
-<div id="appLayout" class="app-layout">
+<div class="game-wrapper" id="gameWrapper">
 
   <!-- LEFT PANEL -->
-  <div class="left-panel left-panel-outer" id="leftPanelOuter" style="display:none;">
+  <div class="left-panel-outer" id="leftPanelOuter" style="display:none;">
     <div class="deck-pile enemy" id="enemyDeckPile">30</div>
     <div class="grave-display" id="enemyGraveBtn">💀 <span id="enemyGraveCount">0</span></div>
+    <div style="flex-grow: 1;"></div>
     <button class="info-btn" id="btnInfoPanel" title="Dice & Passive Info">ℹ️</button>
-    <div style="flex-grow: 1; width: 100%;"></div>
+    <div style="flex-grow: 1;"></div>
     <div class="grave-display" id="playerGraveBtn">💀 <span id="playerGraveCount">0</span></div>
     <div class="deck-pile player" id="playerDeckPile">25</div>
   </div>
 
+  <!-- CENTER GAME AREA -->
   <div class="game-container" id="stageBlock">
 
-    <!-- MAIN MENU -->
     <div class="main-menu" id="mainMenu" style="display:flex;">
       <h1>GOD'S GAMBIT</h1>
       <div class="menu-subtitle">Philippine Mythological Warfare</div>
@@ -46,7 +47,6 @@
       </div>
     </div>
 
-    <!-- FACTION SELECT -->
     <div class="menu-screen" id="menuScreen" style="display:none;">
       <h1>GOD'S GAMBIT</h1>
       <div class="menu-subtitle">Choose Your Faction</div>
@@ -62,7 +62,6 @@
       </div>
     </div>
 
-    <!-- OVERLAYS -->
     <div class="god-select-overlay" id="godSelectOverlay">
       <div class="god-select-box">
         <h2 id="godSelectTitle">Choose Your God</h2>
@@ -108,7 +107,6 @@
       </div>
     </div>
 
-    <!-- INFO OVERLAY -->
     <div class="info-overlay" id="infoOverlay">
       <div class="info-box">
         <div class="info-tabs">
@@ -120,24 +118,21 @@
       </div>
     </div>
 
-    <!-- GAME INTERFACE -->
     <div class="game-interface" id="gameInterface">
       <div class="main-board-area">
         <div class="battlefield-wrapper">
-
-          <!-- LEFT GOD SIDE BLOCK -->
           <div class="god-side-block" id="godSideBlock">
             <div class="god-card-wrapper" id="enemyGodWrapper">
               <div id="enemyGodSide"></div>
               <div class="god-hp-display enemy-hp" id="enemyGodHpDisplay">100</div>
             </div>
             <div class="god-card-wrapper" id="playerGodWrapper">
+              <button class="ult-refresh-btn" id="ultRefreshBtn" disabled>🔄 10🍗</button>
               <div id="playerGodSide"></div>
               <div class="god-hp-display player-hp" id="playerGodHpDisplay">100</div>
             </div>
           </div>
 
-          <!-- BATTLEFIELD CENTER -->
           <div class="battlefield">
             <div class="row"><div class="row-label">🏹</div><div class="slots-container">
               <div class="slot enemy-slot" id="enemyRanged1" data-row="ranged" data-idx="0"></div>
@@ -183,7 +178,7 @@
   </div>
 
   <!-- RIGHT PANEL -->
-  <div class="right-panel right-panel-outer" id="rightPanelOuter" style="display:none;">
+  <div class="right-panel-outer" id="rightPanelOuter" style="display:none;">
     <div class="right-panel-main">
       <div class="timer-pill enemy-timer" id="enemyTimer">30s</div>
       <div class="pillar-label">Enemy Prov</div>
@@ -206,6 +201,22 @@
 
 <script>
 (function() {
+  function applyScaling() {
+    var wrapper = document.getElementById('gameWrapper');
+    if (!wrapper) return;
+    var scaleX = window.innerWidth / 1400;
+    var scaleY = window.innerHeight / 900;
+    var scale = Math.min(scaleX, scaleY);
+    wrapper.style.transform = 'scale(' + scale + ')';
+  }
+
+  window.addEventListener('resize', function() {
+    applyScaling();
+    if (typeof renderAll === 'function' && document.getElementById('gameInterface').classList.contains('active')) {
+      renderAll();
+    }
+  });
+
   const PASSIVES = {
     'Shield 1': { name: 'Shield 1', desc: 'Absorbs 1 hit', type: 'defensive', icon: '🛡️', cssClass: 'passive-shield' },
     'Shield 2': { name: 'Shield 2', desc: 'Absorbs 2 hits', type: 'defensive', icon: '🛡️🛡️', cssClass: 'passive-shield' },
@@ -432,6 +443,7 @@
     document.getElementById('diceInfo').textContent = 'Every 2 Rounds';
     document.getElementById('enemyTimer').textContent = '30s';
 
+    applyScaling();
     renderAll();
     startTimer();
     triggerAutoOverlay('Match Started');
@@ -834,7 +846,7 @@
       const attacker = attackerArr[src.idx];
       if (!attacker || attacker.hasAttacked) return;
 
-            if (target.id === 'enemyGodHpDisplay' || target.closest('#enemyGodHpDisplay') || target.closest('#enemyGodSide')) {
+      if (target.id === 'enemyGodHpDisplay' || target.closest('#enemyGodHpDisplay') || target.closest('#enemyGodSide')) {
         if (hasEnemyUnits()) { document.getElementById('logMessage').textContent = '⚠️ Clear all enemy units first!'; return; }
         const effAtk = getEffectiveAtk(attacker);
         state.enemyGodHp -= effAtk; attacker.hasAttacked = true; executeShake();
@@ -857,11 +869,15 @@
           renderAll(); return;
         }
 
-        // TAUNT CHECK
+        // TAUNT CHECK - shake only when wrong target is clicked
         if (hasTauntOnBoard(state.enemyMelee, state.enemyRanged)) {
           let enemyHasTaunt = enemyCard && enemyCard.passive === 'Taunt' && enemyCard.hp > 0;
           if (!enemyHasTaunt) {
             document.getElementById('logMessage').textContent = '⚠️ An enemy has Taunt! You must attack it first.';
+            document.querySelectorAll('.enemy-slot .card.passive-taunt').forEach(function(tauntCard) {
+              tauntCard.classList.add('shake-taunt');
+              setTimeout(function() { tauntCard.classList.remove('shake-taunt'); }, 1200);
+            });
             return;
           }
         }
@@ -1207,17 +1223,7 @@
     enemyTimerEl.textContent = '30s';
     enemyTimerEl.classList.remove('critical-danger');
 
-    // Check if dice should trigger (before incrementing round)
-    const diceRound = state.round + 1;
-    
-    state.round++;
-    state.provPerTurn = Math.min(state.provPerTurn + 2, 10);
-    state.provPool = Math.min(state.provPool + 2, 20);
-    state.provUsed = 0;
-
-    clearInterval(state.enemyTimerInterval);
-    enemyTimerEl.textContent = '30s';
-    enemyTimerEl.classList.remove('critical-danger');
+    const diceRound = state.round;
 
     if (diceRound % 2 === 0 && diceRound >= 2) {
       setTimeout(() => {
@@ -1247,16 +1253,14 @@
 
     document.getElementById('enemyGodSide').innerHTML = `
       <div class="card god-card">
-        <strong style="font-size:1.2rem !important;">${state.enemyGodName}</strong>
-        <button class="ult" disabled style="opacity:${state.enemyUltAvailable ? '0.6' : '0.2'}; font-size:0.5rem; margin-top:4px;">
-          ${state.enemyUltAvailable ? '⚡ Ultimate Ready' : 'Ultimate Used'}
-        </button>
+        <strong>${state.enemyGodName}</strong>
+        <button class="ult" disabled>${state.enemyUltAvailable ? '⚡ Ultimate Ready' : 'Ultimate Used'}</button>
       </div>`;
 
     document.getElementById('playerGodSide').innerHTML = `
       <div class="card god-card">
-        <strong style="font-size:1.2rem !important;">${state.godName}</strong>
-        <button class="ult" ${!state.ultAvailable ? 'disabled' : ''} onclick="triggerUltimate()">⚡ Ultimate</button>
+        <strong>${state.godName}</strong>
+        <button class="ult" ${!state.ultAvailable ? 'disabled' : ''} onclick="triggerUltimate()">${state.ultAvailable ? '⚡ Ultimate Ready' : 'Ultimate Used'}</button>
       </div>`;
 
     document.getElementById('enemyGodHpDisplay').textContent = isNaN(state.enemyGodHp) ? '100' : state.enemyGodHp;
@@ -1267,18 +1271,11 @@
     document.getElementById('roundDisplay').textContent = state.round;
     document.getElementById('diceInfo').textContent = 'Every 2 Rounds';
 
-    // Ult refresh button
-    // Ult refresh button - always visible
-    const playerWrapper = document.getElementById('playerGodWrapper');
-    const existingBtn = playerWrapper.querySelector('.ult-refresh-btn');
-    if (existingBtn) existingBtn.remove();
-    const refreshBtn = document.createElement('button');
-    refreshBtn.className = 'ult-refresh-btn';
-    refreshBtn.textContent = '🔄 10🍗';
-    refreshBtn.title = 'Spend 10 provisions to refresh Ultimate';
-    refreshBtn.disabled = state.ultAvailable || state.ultRefreshed || availableProv < 10;
-    refreshBtn.onclick = () => refreshUltimate();
-    playerWrapper.appendChild(refreshBtn);
+    const ultRefreshBtn = document.getElementById('ultRefreshBtn');
+    if (ultRefreshBtn) {
+      ultRefreshBtn.disabled = state.ultAvailable || state.ultRefreshed || availableProv < 10;
+      ultRefreshBtn.onclick = function() { refreshUltimate(); };
+    }
 
     const fanContainer = document.getElementById('handFanContainer');
     fanContainer.innerHTML = '';
@@ -1304,7 +1301,20 @@
       });
     }
 
-    if (state.enemyGodHp <= 0 || state.godHp <= 0) { state.gameOver = true; if (state.timerInterval) clearInterval(state.timerInterval); if (state.enemyTimerInterval) clearInterval(state.enemyTimerInterval); triggerAutoOverlay(state.enemyGodHp <= 0 ? '🏆 Victory!' : '💀 Defeat'); }
+    if (state.enemyGodHp <= 0 && !state.gameOver) { 
+      state.enemyGodHp = 0;
+      state.gameOver = true; 
+      if (state.timerInterval) clearInterval(state.timerInterval); 
+      if (state.enemyTimerInterval) clearInterval(state.enemyTimerInterval); 
+      triggerAutoOverlay('🏆 Victory!'); 
+    }
+    if (state.godHp <= 0 && !state.gameOver) { 
+      state.godHp = 0;
+      state.gameOver = true; 
+      if (state.timerInterval) clearInterval(state.timerInterval); 
+      if (state.enemyTimerInterval) clearInterval(state.enemyTimerInterval); 
+      triggerAutoOverlay('💀 Defeat'); 
+    }
   }
 
   function endTurn() {
@@ -1329,6 +1339,7 @@
     document.getElementById('leftPanelOuter').style.display = 'none';
     document.getElementById('rightPanelOuter').style.display = 'none';
     document.getElementById('enemyTimer').textContent = '30s';
+    applyScaling();
   }
 
   function showInfoTab(tab) {
@@ -1380,7 +1391,9 @@
   document.getElementById('tabPassivesBtn').addEventListener('click', () => showInfoTab('passives'));
 
   document.addEventListener('click', (e) => { if (!e.target.closest('.card') && !e.target.closest('button') && !e.target.closest('.overlay')) { spawnClickRipple(e.clientX, e.clientY); } });
-  window.addEventListener('resize', () => { if (state.gameOver) return; if (typeof renderAll === 'function' && document.getElementById('gameInterface').classList.contains('active')) { renderAll(); } });
+  window.addEventListener('resize', () => { applyScaling(); if (!state.gameOver && document.getElementById('gameInterface').classList.contains('active')) { renderAll(); } });
+
+  applyScaling();
 })();
 </script>
 </body>
